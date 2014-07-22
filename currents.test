@@ -1,0 +1,58 @@
+<?php
+/**
+ * @file
+ * Tests for the Currents module
+ */
+
+class CurrentsTestCase extends DrupalWebTestCase{
+	public static function getInfo() {
+		return array(
+			'name' => 'Current posts module functionality',
+			'description' => 'Tests hooks in the Currents module',
+			'group' => 'Currents',
+		);
+	}
+
+	public function setUp() {
+		parent::setUp('currents');
+	}
+
+	public function testPermission() {
+		$data = module_invoke('currents','permission');
+		
+		$this->assertTrue(is_array($data),t('Permission hook returns array'));
+
+		$this->assertTrue(array_key_exists('access currents content',$data),t('Permission is as expected.'));
+	}
+
+	public function testMenu() {
+		$items = module_invoke('currents','menu');
+
+		$this->assertEqual(2,count($items),t('Two items in menu'));
+
+		$this->assertIdentical($items['admin/config/content/currents']['title'],$items['currents']['title'],t('Titles are identical.'));
+	}
+
+	public function testBlockView() {
+		$data = module_invoke('currents','block_view','currents');
+
+		$this->assertEqual(t('Currents'),$data['subject'],t('Subject is as expected.'));
+
+		$this->assertNotNull($data['content'],t('Block contains data.'));
+	}
+
+	public function testBlockInfo(){
+		$info = module_invoke('currents','block_info');
+
+		$this->assertNotEqual('DRUPAL_CACHE_PER_USER',$info['currents']['cache'],t('Cache is not set to DRUPAL_CACHE_PER_USER'));
+
+		$this->assertFalse(count($info) > 1 ,t('No more than one block defined'));
+	}
+
+	public function testBlock() {
+		$info = module_invoke('currents','block_info');
+		$data = module_invoke('currents','block_view','currents');
+
+		$this->assertIdentical($info['currents']['info'],$data['subject'],t('Block list name and subject are identical.'));
+	}
+}

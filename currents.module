@@ -1,0 +1,145 @@
+<?php
+/**
+ * @ file
+ * A block module that display recent blog and forum posts.
+ */
+function currents_help($path,$arg) { // 在模块中出现帮助
+	switch($path){
+		case 'admin/help#currents':
+			return '<p>'.t('Display links to nodes created on this date').'</p>';
+			break;
+	}
+}
+function currents_block_info() { // 在区块中出现 Currents
+	$blocks['currents'] = array(
+		'info' => t('Currents'),
+		'cache' => DRUPAL_CACHE_PER_ROLE,
+	);
+	return $blocks;
+}
+function currents_contents($display) { // 查询数据
+	$today = getdate();
+	$start_time = mktime(0,0,0,$today['mon'],($today['mday']-7),$today['year']);
+	$end_time = time();
+	$max_num = variable_get('currents_max',3);
+	$query = db_select('node','n')
+		->fields('n',array('nid','title','created'))
+		->condition('status',1)
+		->condition('created',array($start_time,$end_time),'BETWEEN')
+		->orderBy('created','DESC');
+		if ($display == 'block') {
+			$query->range(0,$max_num);
+		}
+
+	return $query->execute();
+
+}
+function currents_block_view($delta='') { // 渲染 currents
+	$block = array();
+	switch($delta) {
+		case 'currents':
+			$block['subject'] = t('Currents');
+			if(user_access('access content')) {
+				$result = currents_contents('block');
+
+				$items = array();
+
+				foreach($result as $node) {
+					$items[] = array(
+						'data' => l($node->title,'node/'.$node->nid),		
+					);
+				}
+			    if (empty($items)) {
+					$block['content'] = t('No Posts available.');
+				} else {
+					$block['content']['posts'] = array(
+						'#theme' => 'item_list__currents__block',
+						'#items' => $items,
+					);
+					$block['content']['more'] = array( // 在区块中显示’更多‘的链接
+						'#theme' => 'more_link__currents',
+						'#url' => 'currents',
+						'#title' => t('See the full list of current posts.'),
+					);
+				}
+				/*
+				else {
+					$block['content'] = theme('item_list',array(
+									'items'=>$items));		
+				}
+				*/
+			}
+	 }
+	return $block;
+}
+function currents_menu() { // 使该module可配置
+	$items = array();
+
+	$items['admin/config/content/currents'] = array(
+		'title' => 'Currents',
+		'description' => 'Configuration for Currents module',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('currents_form'),
+	    'access arguments' =>array('access administration pages'),
+		'type' => MENU_NORMAL_ITEM,
+	);
+	$items['currents'] = array( // Currents 将会出现在 导航菜单中
+		'title' => 'Currents',
+		'page callback' => '_currents_page',
+		'access arguments' => array('access currents content'),
+		#'type'=> MENU_NORMAL_ITEM, // 如果使用这个，链接将会出现在导航菜单中
+		'type' => MENU_CALLBACK, //使用这个在导航菜单中不出现
+	);
+	return $items;
+}
+function _currents_page(){ //定制一个显示所有信息的页面
+	$result = currents_contents('page');
+
+	$items = array();
+
+	foreach ($result as $node) {
+		$items[] = array(
+			'data' => l($node->title,'node/'.$node->nid),				
+		);
+	}
+
+	if (empty($items)) {
+		$page_array['currents_arguments'] = array(
+			'#title' => t('All posts from the last week'),
+			'#markup' => t('No posts available.'),
+		);
+		return $page_array;
+	} else {
+		$page_array['currents_arguments'] = array(
+			'#title' => t('All posts from the last week'),
+			'#items' => $items,
+			'#theme' => 'item_list__currents',
+		);
+		return $page_array;
+	}
+}
+function currents_form($form,&$form_state) { // 定制用户输入表单
+	$form['currents_max'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Maximum number of posts'),
+		'#default_value' => variable_get('currents_max',3),
+		'#size' => 2,
+		'#maxlength'=>2,
+		'#description' => t('The maximum number of links to display in the block.'),
+		'#required' => TRUE,
+	);
+	return system_settings_form($form);	
+}
+function currents_form_validate($form,&$form_state){ //验证用户输入
+	$max_num = $form_state['values']['currents_max'];
+	if(!ctype_digit($max_num)) {
+		form_set_error('currents_max',t('You must enter a number for the maximum number of posts to display.'));
+	}
+}
+function currents_permission(){ //权限配置
+	return array(
+		'access currents content' => array(
+			'title' => t('Access content for the Currents module'),		
+		)				
+	);
+}

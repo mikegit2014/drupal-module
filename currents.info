@@ -1,0 +1,7 @@
+name = Currents
+description = A block module that lists links to recent posts.
+core = 7.x
+
+configure = admin/config/content/currents
+
+files[] = currents.test
